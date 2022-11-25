@@ -402,14 +402,41 @@ AC_ARG_ENABLE([java],
 
 sr_cxx_missing=
 
-# Check if the C++ compiler supports the C++11 standard.
-AX_CXX_COMPILE_STDCXX([11], [noext], [optional])
-AS_IF([test "x$HAVE_CXX11" != x1],
+# Check if the C++ compiler supports at least the C++11 standard.
+# Get the highest of the available C++17/C++14/C++11 standards.
+# This transparently amends CXXFLAGS to pick the detected standard.
+HAVE_MODERN_CXX=
+AS_IF([test "x$HAVE_MODERN_CXX" = x],
+	[AX_CXX_COMPILE_STDCXX([17], [noext], [optional])])
+AS_IF([test "x$HAVE_CXX17" = x1],
+	[HAVE_MODERN_CXX=yes])
+AS_IF([test "x$HAVE_MODERN_CXX" = x],
+	[AX_CXX_COMPILE_STDCXX([14], [noext], [optional])])
+AS_IF([test "x$HAVE_CXX14" = x1],
+	[HAVE_MODERN_CXX=yes])
+AS_IF([test "x$HAVE_MODERN_CXX" = x],
+	[AX_CXX_COMPILE_STDCXX([11], [noext], [optional])])
+AS_IF([test "x$HAVE_CXX11" = x1],
+	[HAVE_MODERN_CXX=yes])
+AS_IF([test "x$HAVE_MODERN_CXX" = x],
 	[SR_APPEND([sr_cxx_missing], [', '], ['C++11'])])
 
 # The C++ bindings need glibmm.
-SR_PKG_CHECK([glibmm], [SR_PKGLIBS_CXX], [glibmm-2.4 >= 2.32.0])
+# Prefer glibmm-2.4 for backwards compatibility.
+# Accept glibmm-2.68 when glibmm-2.4 is not available.
+sr_have_glibmm=no
 AS_IF([test "x$sr_have_glibmm" != xyes],
+	[SR_PKG_CHECK([glibmm24], [SR_PKGLIBS_CXX], [glibmm-2.4 >= 2.32.0])])
+AS_IF([test "x$sr_have_glibmm24" = xyes],
+	[SR_APPEND([SR_GLIBMM_REQUIRES], [glibmm-2.4>=2.32.0])
+	sr_have_glibmm=yes])
+AS_IF([test "x$sr_have_glibmm" != xyes],
+	[SR_PKG_CHECK([glibmm268], [SR_PKGLIBS_CXX], [glibmm-2.68 >= 2.68.0])])
+AS_IF([test "x$sr_have_glibmm268" = xyes],
+	[SR_APPEND([SR_GLIBMM_REQUIRES], [glibmm-2.68>=2.68.0])
+	sr_have_glibmm=yes])
+AS_IF([test "x$sr_have_glibmm" = xyes],
+	[AC_SUBST(SR_GLIBMM_REQUIRES)],
 	[SR_APPEND([sr_cxx_missing], [', '], [glibmm])])
 
 # The C++ bindings use Doxygen to parse libsigrok symbols.
