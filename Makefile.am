@@ -549,6 +549,14 @@ src_libdrivers_la_SOURCES += \
 	src/hardware/pipistrello-ols/protocol.c \
 	src/hardware/pipistrello-ols/api.c
 endif
+if HW_PINA
+src_libdrivers_la_SOURCES += \
+        src/hardware/pina/protocol.h \
+        src/hardware/pina/protocol.c \
+        src/hardware/pina/api.c \
+        src/hardware/pina/pina.h \
+        src/hardware/pina/pina_tcp.c
+endif
 if HW_RDTECH_DPS
 src_libdrivers_la_SOURCES += \
 	src/hardware/rdtech-dps/protocol.h \
