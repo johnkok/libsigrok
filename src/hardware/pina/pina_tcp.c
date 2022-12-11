@@ -66,7 +66,7 @@ static int pina_tcp_open(struct dev_context *devc)
 			continue;
 		if (connect(devc->socket, res->ai_addr, res->ai_addrlen) != 0) {
 			close(devc->socket);
-			devc->socket = -1;
+		 	devc->socket = -1;
 			continue;
 		}
 		break;
@@ -257,7 +257,7 @@ static int pina_start(struct dev_context *devc)
 
 static int pina_stop(struct dev_context *devc)
 {
-        return pina_tcp_send_cmd(devc, "close");
+	return pina_tcp_send_cmd(devc, "close");
 }
 
 static int pina_open(struct dev_context *devc)
@@ -267,9 +267,9 @@ static int pina_open(struct dev_context *devc)
 
 static int pina_close(struct dev_context *devc)
 {
-	if (close(devc->socket) < 0)
+	if (close(devc->socket) < 0) {
 		return SR_ERR;
-
+        }
 	return SR_OK;
 }
 

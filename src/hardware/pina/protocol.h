@@ -27,7 +27,7 @@
 
 #define LOG_PREFIX "pina"
 
-#define TCP_BUFFER_SIZE         (128 * 1024)
+#define TCP_BUFFER_SIZE         (16 * 16)
 
 struct dev_context {
         /* Operations */

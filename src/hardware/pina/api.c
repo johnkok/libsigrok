@@ -106,8 +106,6 @@ static GSList *pina_scan(struct sr_dev_driver *di, GSList *options)
 
         sdi->priv = devc;
 
-        printf("Scan done!");
-
 	return std_scan_complete(di, g_slist_append(NULL, sdi));
 
 err_free:
@@ -196,7 +194,6 @@ static int dev_open(struct sr_dev_inst *sdi)
 static int dev_close(struct sr_dev_inst *sdi)
 {
         struct dev_context *devc = sdi->priv;
-
         /* Close the memory mapping and the file */
         devc->pina->close(devc);
 

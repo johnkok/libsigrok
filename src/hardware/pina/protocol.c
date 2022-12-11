@@ -41,7 +41,7 @@ SR_PRIV int pina_tcp_receive_data(int fd, int revents, void *cb_data)
         struct sr_analog_encoding encoding;
         struct sr_analog_meaning meaning;
         struct sr_analog_spec spec;
-        float data = 1.55f;
+        float data = 0.0f;
 
         int len;
 
@@ -61,7 +61,9 @@ SR_PRIV int pina_tcp_receive_data(int fd, int revents, void *cb_data)
                         sr_err("Receive error: %s", g_strerror(errno));
                         return SR_ERR;
                 }
-
+                else if (len == 4) {
+		    data = *(float *)(devc->tcp_buffer);
+		}
 
                 sr_analog_init(&analog, &encoding, &meaning, &spec, 4);
 
