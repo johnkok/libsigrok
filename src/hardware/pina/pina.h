@@ -40,6 +40,15 @@ struct pina_ops {
 	int (*open)(struct dev_context *devc);
 	int (*close)(struct dev_context *devc);
 
+        int (*get_buffersize)(struct dev_context *devc);
+        int (*set_buffersize)(struct dev_context *devc);
+
+        int (*get_samplerate)(struct dev_context *devc);
+        int (*set_samplerate)(struct dev_context *devc);
+
+        int (*get_sampleunit)(struct dev_context *devc);
+        int (*set_sampleunit)(struct dev_context *devc);
+
         /* Start and stop the capture operation */
         int (*start)(struct dev_context *devc);
         int (*stop)(struct dev_context *devc);

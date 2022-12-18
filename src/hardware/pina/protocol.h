@@ -44,6 +44,10 @@ struct dev_context {
         uint32_t bufunitsize;
         uint32_t buffersize;
 
+        /* Acquisition settings */
+        uint64_t cur_samplerate;
+        uint32_t sampleunit;
+
         int fd;
         GPollFD pollfd;
         int last_error;

@@ -248,6 +248,82 @@ SR_PRIV int pina_tcp_detect(struct dev_context *devc)
 	return ret;
 }
 
+static int pina_get_buffersize(struct dev_context *devc)
+{
+        return pina_tcp_get_int(devc, "memalloc",
+                (int *)&devc->buffersize);
+}
+
+static int pina_set_buffersize(struct dev_context *devc)
+{
+        int ret;
+        char *resp;
+
+        pina_tcp_send_cmd(devc, "memalloc %" PRIu32, devc->buffersize);
+        ret = pina_tcp_get_string(devc, NULL, &resp);
+        if (ret == SR_OK && !g_ascii_strncasecmp(resp, "ok", 2))
+                ret = SR_OK;
+        else
+                ret = SR_ERR;
+
+        g_free(resp);
+
+        return ret;
+}
+
+static int pina_get_samplerate(struct dev_context *devc)
+{
+        int arg, err;
+
+        err = pina_tcp_get_int(devc, "samplerate", &arg);
+        if (err)
+                return err;
+
+        devc->cur_samplerate = arg;
+        return SR_OK;
+}
+
+static int pina_get_sampleunit(struct dev_context *devc)
+{
+        return pina_tcp_get_int(devc, "sampleunit",
+                (int *)&devc->sampleunit);
+}
+
+static int pina_set_sampleunit(struct dev_context *devc)
+{
+        int ret;
+        char *resp;
+
+        pina_tcp_send_cmd(devc, "sampleunit %" PRIu32, devc->sampleunit);
+        ret = pina_tcp_get_string(devc, NULL, &resp);
+        if (ret == SR_OK && !g_ascii_strncasecmp(resp, "ok", 2))
+                ret = SR_OK;
+        else
+                ret = SR_ERR;
+
+        g_free(resp);
+
+        return ret;
+}
+
+static int pina_set_samplerate(struct dev_context *devc)
+{
+        int ret;
+        char *resp;
+
+        pina_tcp_send_cmd(devc, "samplerate %" PRIu32,
+                (uint32_t)devc->cur_samplerate);
+        ret = pina_tcp_get_string(devc, NULL, &resp);
+        if (ret == SR_OK && !g_ascii_strncasecmp(resp, "ok", 2))
+                ret = SR_OK;
+        else
+                ret = SR_ERR;
+
+        g_free(resp);
+
+        return ret;
+}
+
 static int pina_start(struct dev_context *devc)
 {
         pina_tcp_drain(devc);
@@ -283,7 +359,13 @@ static int dummy(struct dev_context *devc)
 SR_PRIV const struct pina_ops pina_tcp_ops = {
 	.open = pina_open,
 	.close = pina_close,
-        .start = pina_start,
+        .get_buffersize = pina_get_buffersize,
+        .set_buffersize = pina_set_buffersize,
+        .get_samplerate = pina_get_samplerate,
+        .set_samplerate = pina_set_samplerate,
+        .get_sampleunit = pina_get_sampleunit,
+        .set_sampleunit = pina_set_sampleunit,
+	.start = pina_start,
         .stop = pina_stop,
 	.mmap = dummy,
 	.munmap = dummy,

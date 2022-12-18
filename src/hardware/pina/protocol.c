@@ -32,28 +32,27 @@
 #include "protocol.h"
 #include "pina.h"
 
+static const struct binary_analog_channel pina_default_channels[] = {
+        { "I",     { 4, BVT_LE_FLOAT, 1.0, }, 6, SR_MQ_CURRENT, SR_UNIT_AMPERE },
+	{ "Vbus",  { 8, BVT_LE_FLOAT, 1.0, }, 4, SR_MQ_VOLTAGE, SR_UNIT_VOLT },
+        ALL_ZERO,
+};
+
 SR_PRIV int pina_tcp_receive_data(int fd, int revents, void *cb_data)
 {
         const struct sr_dev_inst *sdi;
         struct dev_context *devc;
         struct sr_datafeed_packet packet;
-        struct sr_datafeed_analog analog;
-        struct sr_analog_encoding encoding;
-        struct sr_analog_meaning meaning;
-        struct sr_analog_spec spec;
-        float data = 0.0f;
-
+	struct sr_datafeed_logic logic;
+	unsigned char logic_data[8];
         int len;
+        GSList *ch;
 
         if (!(sdi = cb_data) || !(devc = sdi->priv))
                 return TRUE;
 
 
         if (revents == G_IO_IN) {
-
-
-                printf("RX DATA\n");
-
                 sr_info("In callback G_IO_IN");
 
                 len = recv(fd, devc->tcp_buffer, TCP_BUFFER_SIZE, 0);
@@ -61,44 +60,30 @@ SR_PRIV int pina_tcp_receive_data(int fd, int revents, void *cb_data)
                         sr_err("Receive error: %s", g_strerror(errno));
                         return SR_ERR;
                 }
-                else if (len == 4) {
-		    data = *(float *)(devc->tcp_buffer);
+                else if (len == 16) {
+                    ch = sdi->channels;
+                    bv_send_analog_channel(sdi, ch->data,
+                                       &pina_default_channels[0],
+				       devc->tcp_buffer, 16);
+                    ch = g_slist_next(ch);
+	            bv_send_analog_channel(sdi, ch->data,
+                                       &pina_default_channels[1],
+				       devc->tcp_buffer, 16);
+
+		    // Send logic channel
+                    packet.type = SR_DF_LOGIC;
+                    packet.payload = &logic;
+		    logic.unitsize = 1;
+		    for (int i = 0 ; i < 8 ; i++)
+		    {
+                        logic_data[i] = devc->tcp_buffer[12] & (1<<i);
+		    }
+                    logic.data = logic_data;
+		    logic.length = 12;
+		    sr_session_send(sdi, &packet);
+
 		}
-
-                sr_analog_init(&analog, &encoding, &meaning, &spec, 4);
-
-                /* Configure data packet */
-                packet.type = SR_DF_ANALOG;
-                packet.payload = &analog;
-
-                analog.data = &data;
-                analog.num_samples = 1;
-                analog.encoding = &encoding;
-                analog.spec = &spec;
-                analog.meaning = &meaning;
-
-                // encoding
-                encoding.unitsize = sizeof(float);
-                encoding.is_float = TRUE;
-                encoding.digits = 4;
-
-                // meaning
-                meaning.mq = SR_MQ_CURRENT;
-                meaning.unit = SR_UNIT_AMPERE;
-                meaning.mqflags = SR_MQFLAG_DC;
-                meaning.channels = sdi->channels;
-
-                // spec
-                spec.spec_digits = 4;
-
-
-               /* Send the incoming transfer to the session bus. */
-               sr_session_send(sdi, &packet);
-
-        }
-
-std_session_send_df_end(sdi);
-                devc->pina->stop(devc);
-
+	}
+        std_session_send_df_end(sdi);
         return TRUE;
 }

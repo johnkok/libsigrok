@@ -35,6 +35,7 @@ static const uint32_t scanopts[] = {
 };
 
 static const uint32_t drvopts[] = {
+	SR_CONF_LOGIC_ANALYZER,
 	SR_CONF_ENERGYMETER,
 };
 
@@ -42,14 +43,21 @@ static const uint32_t devopts[] = {
 	SR_CONF_CONTINUOUS,
 };
 
+/* Possible sample rates : 10 Hz for now */
+static const uint64_t samplerates[] = {
+        SR_HZ(10),
+};
+
 static GSList *pina_scan(struct sr_dev_driver *di, GSList *options)
 {
 	GSList *l = NULL;
-        const char *conn;
+        const char *conn = NULL;
         gchar **params;
         struct sr_config *src;
 	struct dev_context *devc = NULL;
 	struct sr_dev_inst *sdi = NULL;
+        struct sr_channel_group *group;
+        struct sr_channel *channel;
 
         for (l = options; l; l = l->next) {
                 src = l->data;
@@ -65,7 +73,7 @@ static GSList *pina_scan(struct sr_dev_driver *di, GSList *options)
         devc->tcp_buffer = 0;
         devc->pina = &pina_tcp_ops;
 
-        if (conn)
+        if (conn != NULL)
         {
             params = g_strsplit(conn, "/", 0);
             if (!params || !params[1] || !params[2]) {
@@ -102,9 +110,21 @@ static GSList *pina_scan(struct sr_dev_driver *di, GSList *options)
                 devc->address, devc->port);
         }
 
-        sr_channel_new(sdi, 0, SR_CHANNEL_ANALOG, TRUE, "CH1");
+	group = sr_channel_group_new(sdi, "INA", NULL);
 
-        sdi->priv = devc;
+	int ch_index = 0;
+        channel = sr_channel_new(sdi, ch_index++, SR_CHANNEL_ANALOG, TRUE, "I");
+        group->channels = g_slist_append(group->channels, channel);
+        channel = sr_channel_new(sdi, ch_index++, SR_CHANNEL_ANALOG, TRUE, "VBUS");
+        group->channels = g_slist_append(group->channels, channel);
+	for (int i = 0 ; i < 8 ; i++)
+	{
+            char ch_name[8];
+	    snprintf(ch_name, 8, "IO%d", i);
+            channel = sr_channel_new(sdi, ch_index++, SR_CHANNEL_LOGIC, TRUE, ch_name);
+            // group->channels = g_slist_append(group->channels, channel);
+	}
+	sdi->priv = devc;
 
 	return std_scan_complete(di, g_slist_append(NULL, sdi));
 
@@ -120,22 +140,41 @@ static int pina_dev_config_get(uint32_t key, GVariant **data,
 {
         struct dev_context *devc = sdi->priv;
 
-        printf("Get config called %X\n", key);
-        return SR_OK;
+	(void) cg;
+
+        switch (key) {
+	case SR_CONF_SAMPLERATE:
+                *data = g_variant_new_uint64(devc->cur_samplerate);
+                break;
+        case SR_CONF_NUM_LOGIC_CHANNELS:
+                *data = g_variant_new_uint32(8);
+                break;
+        default:
+                return SR_ERR_NA;
+        }
+
+	return SR_OK;
 }
 
-static int pina_dev_config_set(uint32_t key, GVariant **data,
+static int pina_dev_config_set(uint32_t key, GVariant *data,
         const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
 {
         struct dev_context *devc = sdi->priv;
 
-        return SR_OK;
+	(void) devc;
+        (void) key;
+	(void) cg;
+        (void) data;
+
+	return SR_OK;
 }
 
-static int pina_dev_acquisition_start(struct sr_dev_inst *sdi)
+static int pina_dev_acquisition_start(const struct sr_dev_inst *sdi)
 {
         struct dev_context *devc = sdi->priv;
         GSList *l;
+
+	(void) l;
 
         /* Clear capture state */
         devc->bytes_read = 0;
@@ -157,7 +196,6 @@ static int pina_dev_acquisition_start(struct sr_dev_inst *sdi)
 static int pina_dev_acquisition_stop(struct sr_dev_inst *sdi)
 {
         struct dev_context *devc = sdi->priv;
-
         devc->pina->stop(devc);
         pina_tcp_drain(devc);
 
@@ -170,7 +208,21 @@ static int pina_dev_acquisition_stop(struct sr_dev_inst *sdi)
 static int config_list(uint32_t key, GVariant **data,
 		       const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
 {
-	return STD_CONFIG_LIST(key, data, sdi, cg, scanopts, drvopts, devopts);
+        (void) sdi;
+        (void) cg;
+
+	switch (key) {
+        case SR_CONF_SCAN_OPTIONS:
+        case SR_CONF_DEVICE_OPTIONS:
+                return STD_CONFIG_LIST(key, data, sdi, cg, scanopts, drvopts, devopts);
+	case SR_CONF_SAMPLERATE:
+                *data = std_gvar_samplerates_steps(ARRAY_AND_SIZE(samplerates));
+                break;
+        default:
+                return SR_ERR_NA;
+        }
+
+        return SR_OK;
 }
 
 static int dev_open(struct sr_dev_inst *sdi)
@@ -184,6 +236,11 @@ static int dev_open(struct sr_dev_inst *sdi)
         devc->pollfd.fd = devc->socket;
         devc->pollfd.events = G_IO_IN;
         devc->pollfd.revents = 0;
+
+        /* Get the default attributes */
+        devc->pina->get_samplerate(devc);
+        devc->pina->get_sampleunit(devc);
+        devc->pina->get_buffersize(devc);
 
         /* Map the kernel capture FIFO for reads, saves 1 level of memcpy */
         devc->tcp_buffer = g_malloc(TCP_BUFFER_SIZE);
