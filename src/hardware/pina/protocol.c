@@ -44,7 +44,6 @@ SR_PRIV int pina_tcp_receive_data(int fd, int revents, void *cb_data)
         struct dev_context *devc;
         struct sr_datafeed_packet packet;
 	struct sr_datafeed_logic logic;
-	unsigned char logic_data[8];
         int len;
         GSList *ch;
 
@@ -74,16 +73,14 @@ SR_PRIV int pina_tcp_receive_data(int fd, int revents, void *cb_data)
                     packet.type = SR_DF_LOGIC;
                     packet.payload = &logic;
 		    logic.unitsize = 1;
-		    for (int i = 0 ; i < 8 ; i++)
-		    {
-                        logic_data[i] = devc->tcp_buffer[12] & (1<<i);
-		    }
-                    logic.data = logic_data;
-		    logic.length = 12;
+                    logic.data = &devc->tcp_buffer[12];
+		    logic.length = 1;
 		    sr_session_send(sdi, &packet);
+//		    devc->offset++;
+//		    std_session_send_df_end(sdi);
 
 		}
 	}
-        std_session_send_df_end(sdi);
-        return TRUE;
+        
+	return TRUE;
 }

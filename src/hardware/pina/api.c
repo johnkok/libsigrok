@@ -50,12 +50,12 @@ static const uint64_t samplerates[] = {
 
 static GSList *pina_scan(struct sr_dev_driver *di, GSList *options)
 {
-	GSList *l = NULL;
+        GSList *l = NULL;
         const char *conn = NULL;
         gchar **params;
         struct sr_config *src;
-	struct dev_context *devc = NULL;
-	struct sr_dev_inst *sdi = NULL;
+        struct dev_context *devc = NULL;
+        struct sr_dev_inst *sdi = NULL;
         struct sr_channel_group *group;
         struct sr_channel *channel;
 
@@ -66,8 +66,8 @@ static GSList *pina_scan(struct sr_dev_driver *di, GSList *options)
         }
 
 
-	devc = g_malloc0(sizeof(struct dev_context));
-	sdi = g_malloc0(sizeof(struct sr_dev_inst));
+        devc = g_malloc0(sizeof(struct dev_context));
+        sdi = g_malloc0(sizeof(struct sr_dev_inst));
 
         devc->fd = -1;
         devc->tcp_buffer = 0;
@@ -113,26 +113,29 @@ static GSList *pina_scan(struct sr_dev_driver *di, GSList *options)
 	group = sr_channel_group_new(sdi, "INA", NULL);
 
 	int ch_index = 0;
+
         channel = sr_channel_new(sdi, ch_index++, SR_CHANNEL_ANALOG, TRUE, "I");
         group->channels = g_slist_append(group->channels, channel);
         channel = sr_channel_new(sdi, ch_index++, SR_CHANNEL_ANALOG, TRUE, "VBUS");
         group->channels = g_slist_append(group->channels, channel);
-	for (int i = 0 ; i < 8 ; i++)
-	{
-            char ch_name[8];
-	    snprintf(ch_name, 8, "IO%d", i);
-            channel = sr_channel_new(sdi, ch_index++, SR_CHANNEL_LOGIC, TRUE, ch_name);
-            // group->channels = g_slist_append(group->channels, channel);
-	}
-	sdi->priv = devc;
 
-	return std_scan_complete(di, g_slist_append(NULL, sdi));
+        for (int i = 0 ; i < 8 ; i++)
+        {
+            char ch_name[8];
+            snprintf(ch_name, 8, "IO%d", i);
+            channel = sr_channel_new(sdi, i, SR_CHANNEL_LOGIC, TRUE, ch_name);
+            group->channels = g_slist_append(group->channels, channel);
+        }
+
+        sdi->priv = devc;
+
+        return std_scan_complete(di, g_slist_append(NULL, sdi));
 
 err_free:
         g_free(devc);
         g_free(sdi);
 
-	return NULL;
+        return NULL;
 }
 
 static int pina_dev_config_get(uint32_t key, GVariant **data,
@@ -140,10 +143,10 @@ static int pina_dev_config_get(uint32_t key, GVariant **data,
 {
         struct dev_context *devc = sdi->priv;
 
-	(void) cg;
+        (void) cg;
 
         switch (key) {
-	case SR_CONF_SAMPLERATE:
+        case SR_CONF_SAMPLERATE:
                 *data = g_variant_new_uint64(devc->cur_samplerate);
                 break;
         case SR_CONF_NUM_LOGIC_CHANNELS:
@@ -153,7 +156,7 @@ static int pina_dev_config_get(uint32_t key, GVariant **data,
                 return SR_ERR_NA;
         }
 
-	return SR_OK;
+        return SR_OK;
 }
 
 static int pina_dev_config_set(uint32_t key, GVariant *data,
@@ -161,12 +164,12 @@ static int pina_dev_config_set(uint32_t key, GVariant *data,
 {
         struct dev_context *devc = sdi->priv;
 
-	(void) devc;
+        (void) devc;
         (void) key;
-	(void) cg;
+        (void) cg;
         (void) data;
 
-	return SR_OK;
+        return SR_OK;
 }
 
 static int pina_dev_acquisition_start(const struct sr_dev_inst *sdi)
@@ -180,6 +183,10 @@ static int pina_dev_acquisition_start(const struct sr_dev_inst *sdi)
         devc->bytes_read = 0;
         devc->offset = 0;
 
+        devc->sampleunit = 0;
+        devc->limit_samples = UINT64_MAX;
+        devc->trigger_fired = TRUE;
+
         std_session_send_df_header(sdi);
 
         /* Trigger and add poll on file */
@@ -187,8 +194,7 @@ static int pina_dev_acquisition_start(const struct sr_dev_inst *sdi)
 
 
         sr_session_source_add_pollfd(sdi->session, &devc->pollfd,
-            1, pina_tcp_receive_data,
-            (void *)sdi);
+            10000, pina_tcp_receive_data, (void *)sdi);
 
         return SR_OK;
 }
@@ -205,20 +211,20 @@ static int pina_dev_acquisition_stop(struct sr_dev_inst *sdi)
         return SR_OK;
 }
 
-static int config_list(uint32_t key, GVariant **data,
+static int pina_dev_config_list(uint32_t key, GVariant **data,
 		       const struct sr_dev_inst *sdi, const struct sr_channel_group *cg)
 {
         (void) sdi;
         (void) cg;
 
-	switch (key) {
-        case SR_CONF_SCAN_OPTIONS:
-        case SR_CONF_DEVICE_OPTIONS:
+        switch (key) {
+            case SR_CONF_SCAN_OPTIONS:
+            case SR_CONF_DEVICE_OPTIONS:
                 return STD_CONFIG_LIST(key, data, sdi, cg, scanopts, drvopts, devopts);
-	case SR_CONF_SAMPLERATE:
+            case SR_CONF_SAMPLERATE:
                 *data = std_gvar_samplerates_steps(ARRAY_AND_SIZE(samplerates));
                 break;
-        default:
+            default:
                 return SR_ERR_NA;
         }
 
@@ -258,21 +264,21 @@ static int dev_close(struct sr_dev_inst *sdi)
 }
 
 static struct sr_dev_driver pina_driver_info = {
-	.name = "pina",
-	.longname = "Rasberry pico w INA228 power meter",
-	.api_version = 1,
-	.init = std_init,
-	.cleanup = std_cleanup,
-	.scan = pina_scan,
-	.dev_list = std_dev_list,
-	.dev_clear = std_dev_clear,
-	.config_get = pina_dev_config_get,
-	.config_set = pina_dev_config_set,
-	.config_list = config_list,
-	.dev_open = dev_open,
-	.dev_close = dev_close,
-        .dev_acquisition_start = pina_dev_acquisition_start,
-        .dev_acquisition_stop = pina_dev_acquisition_stop,
-	.context = NULL,
+    .name = "pina",
+    .longname = "Rasberry pico w INA228 power meter",
+    .api_version = 1,
+    .init = std_init,
+    .cleanup = std_cleanup,
+    .scan = pina_scan,
+    .dev_list = std_dev_list,
+    .dev_clear = std_dev_clear,
+    .config_get = pina_dev_config_get,
+    .config_set = pina_dev_config_set,
+    .config_list = pina_dev_config_list,
+    .dev_open = dev_open,
+    .dev_close = dev_close,
+    .dev_acquisition_start = pina_dev_acquisition_start,
+    .dev_acquisition_stop = pina_dev_acquisition_stop,
+    .context = NULL,
 };
 SR_REGISTER_DEV_DRIVER(pina_driver_info);

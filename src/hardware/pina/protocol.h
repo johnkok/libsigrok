@@ -46,7 +46,8 @@ struct dev_context {
 
         /* Acquisition settings */
         uint64_t cur_samplerate;
-        uint32_t sampleunit;
+        uint64_t limit_samples;
+	uint32_t sampleunit;
 
         int fd;
         GPollFD pollfd;
@@ -56,6 +57,8 @@ struct dev_context {
         uint64_t sent_samples;
         uint32_t offset;
         uint8_t *sample_buf;    /* mmap'd kernel buffer here */
+
+        gboolean trigger_fired;
 };
 
 SR_PRIV int pina_tcp_receive_data(int fd, int revents, void *cb_data);
